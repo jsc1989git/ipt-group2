@@ -4,6 +4,17 @@ from rest_framework import status
 from .models import User, Post, Comment
 from .serializers import UserSerializer, PostSerializer, CommentSerializer
 import json
+from rest_framework.permissions import IsAuthenticated
+from .permissions import IsPostAuthor
+from rest_framework.authentication import TokenAuthentication
+from rest_framework.permissions import IsAuthenticated
+
+class ProtectedView(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        return Response({"message": "Authenticated!"})
 
 class UserListCreate(APIView):
     def get(self, request):
@@ -70,11 +81,15 @@ class PostListCreate(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
 class PostDetail(APIView):
+    permission_classes = [IsAuthenticated, IsPostAuthor]
+
     def get(self, request, pk):
         try:
             post = Post.objects.get(pk=pk)
-            serializer = PostSerializer(post)
-            return Response(serializer.data)
+            # serializer = PostSerializer(post)
+            # return Response(serializer.data)
+            self.check_object_permissions(request, post)
+            return Response({"content": post.content})
         except Post.DoesNotExist:
             return Response({"error": "Post not found"}, status=status.HTTP_404_NOT_FOUND)
         
