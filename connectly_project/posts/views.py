@@ -1,49 +1,9 @@
-# from django.shortcuts import render
-# from django.http import JsonResponse
-# from django.views.decorators.csrf import csrf_exempt
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from .models import User, Post, Comment
 from .serializers import UserSerializer, PostSerializer, CommentSerializer
 import json
-
-# def get_users(request):
-#     try:
-#         users = list(User.objects.values('id', 'username', 'email', 'created_at'))
-#         return JsonResponse(users, safe=False)
-#     except Exception as e:
-#         return JsonResponse({'error': str(e)}, status=500)
-
-# @csrf_exempt
-# def create_user(request):
-#     if request.method == 'POST':
-#         try:
-#             data = json.loads(request.body)
-#             user = User.objects.create(username=data['username'], email=data['email'])
-#             return JsonResponse({'id': user.id, 'message': 'User created successfully'}, status=201)
-#         except Exception as e:
-#             return JsonResponse({'error': str(e)}, status=500)
-
-# def get_posts(request):
-#     try:
-#         posts = list(Post.objects.values('id', 'content', 'author', 'created_at'))
-#         return JsonResponse(posts, safe=False)
-#     except Exception as e:
-#         return JsonResponse({'error': str(e)}, status=500)
-    
-# @csrf_exempt
-# def create_post(request):
-#     if request.method == 'POST':
-#         try:
-#             data = json.loads(request.body)
-#             author = User.objects.get(id=data['author'])
-#             post = Post.objects.create(content=data['content'], author=author)
-#             return JsonResponse({'id': post.id, 'message': 'Post created successfully'}, status=201)
-#         except User.DoesNotExist:
-#             return JsonResponse({'error': 'Author not found'}, status=404)
-#         except Exception as e:
-#             return JsonResponse({'error': str(e)}, status=500)
 
 class UserListCreate(APIView):
     def get(self, request):
@@ -55,21 +15,93 @@ class UserListCreate(APIView):
         serializer = UserSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            return Response({
+                "id": serializer.data["id"],
+                "message": "User created successfully"
+                }, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class UserDetail(APIView):
+    def get(self, request, pk):
+        try:
+            user = User.objects.get(pk=pk)
+            serializer = UserSerializer(user)
+            return Response(serializer.data)
+        except User.DoesNotExist:
+            return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+        
+    def patch(self, request, pk):
+        try:
+            user = User.objects.get(pk=pk)
+        except User.DoesNotExist:
+            return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+        
+        serializer = UserSerializer(user, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    def delete(self, request, pk):
+        try:
+            user = User.objects.get(pk=pk)
+            user.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except User.DoesNotExist:
+            return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
     
 class PostListCreate(APIView):
     def get(self, request):
         posts = Post.objects.all()
         serializer = PostSerializer(posts, many=True)
-        return Response(serializer.data)
+        return Response({
+            "status": "success",
+            "data": serializer.data
+        })
     
     def post(self, request):
         serializer = PostSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            return Response({
+                "id": serializer.data["id"],
+                "message": "Post created successfully"
+                }, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+class PostDetail(APIView):
+    def get(self, request, pk):
+        try:
+            post = Post.objects.get(pk=pk)
+            serializer = PostSerializer(post)
+            return Response(serializer.data)
+        except Post.DoesNotExist:
+            return Response({"error": "Post not found"}, status=status.HTTP_404_NOT_FOUND)
+        
+    def patch(self, request, pk):
+        try:
+            post = Post.objects.get(pk=pk)
+        except Post.DoesNotExist:
+            return Response({"error": "Post not found"}, status=status.HTTP_404_NOT_FOUND)
+        
+        serializer = PostSerializer(post, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({
+                "id": serializer.data["id"],
+                "message": "Post updated successfully"
+            }, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    def delete(self, request, pk):
+        try:
+            post = Post.objects.get(pk=pk)
+            post.delete()
+            return Response({
+                "message": "Post deleted successfully"
+            },status=status.HTTP_204_NO_CONTENT)
+        except Post.DoesNotExist:
+            return Response({"error": "Post not found"}, status=status.HTTP_404_NOT_FOUND)
     
 class CommentListCreate(APIView):
     def get(self, request):
@@ -81,5 +113,42 @@ class CommentListCreate(APIView):
         serializer = CommentSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            return Response({
+                "id": serializer.data["id"],
+                "message": "Comment created successfully"
+            }, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+class CommentDetail(APIView):
+    def get(self, request, pk):
+        try:
+            comment = Comment.objects.get(pk=pk)
+            serializer = CommentSerializer(comment)
+            return Response(serializer.data)
+        except Comment.DoesNotExist:
+            return Response({"error": "Comment not found"}, status=status.HTTP_404_NOT_FOUND)
+        
+    def patch(self, request, pk):
+        try:
+            comment = Comment.objects.get(pk=pk)
+        except Comment.DoesNotExist:
+            return Response({"error": "Comment not found"}, status=status.HTTP_404_NOT_FOUND)
+        
+        serializer = CommentSerializer(comment, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({
+                "id": serializer.data["id"],
+                "message": "Comment updated successfully"
+            }, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    def delete(self, request, pk):
+        try:
+            comment = Comment.objects.get(pk=pk)
+            comment.delete()
+            return Response({
+                "message": "Comment deleted successfully"
+                },status=status.HTTP_204_NO_CONTENT)
+        except Comment.DoesNotExist:
+            return Response({"error": "Comment not found"}, status=status.HTTP_404_NOT_FOUND)
