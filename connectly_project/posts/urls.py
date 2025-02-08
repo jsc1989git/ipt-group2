@@ -1,6 +1,6 @@
 from django.urls import path
 # from . import views
-from .views import UserListCreate, PostListCreate, CommentListCreate, UserDetail, PostDetail, CommentDetail
+from .views import LoginView, UserListCreate, PostListCreate, CommentListCreate, UserDetail, PostDetail, CommentDetail
 urlpatterns = [
     # User endpoints
     path('users/', UserListCreate.as_view(), name='user_list_create'),
@@ -13,4 +13,6 @@ urlpatterns = [
     # Comment endpoints
     path('comments/', CommentListCreate.as_view(), name='comment_list_create'),
     path('comments/<int:pk>/', CommentDetail.as_view(), name='comment_detail'),
+
+    path('login/', LoginView.as_view(), name='api_login'),
 ]
