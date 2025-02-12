@@ -1,17 +1,25 @@
 from rest_framework import serializers
-from .models import User, Task
+from .models import User, Task, Category
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'created_at']
+        fields = '__all__'
+
+class CategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Category
+        fields = '__all__'
 
 class TaskSerializer(serializers.ModelSerializer):
+    category = CategorySerializer(read_only=True)
+    category_id = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all(), write_only=True, source='category')
+
     class Meta:
         model = Task
-        fields = ['id', 'title', 'description', 'assigned_to', 'is_completed', 'created_at']
+        fields = '__all__'
 
-def validate_assigned_to(self, value):
-    if not User.objects.filter(id=value).exists():
-        raise serializers.ValidationError("Assigned user does not exist")
-    return value
+    def validate_title(self, value):
+        if not value:
+            raise serializers.ValidationError("The task must have a title.")
+        return value

@@ -1,62 +1,38 @@
-from django.http import JsonResponse
-from .models import User
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from .models import User, Task
-from .serializers import UserSerializer, TaskSerializer
+from django.shortcuts import render
+from rest_framework import viewsets
+from .models import User, Task, Category
+from .serializers import TaskSerializer, UserSerializer, CategorySerializer
 
-def get_users(request):
-    users = list(User.objects.values('id', 'username', 'email', 'created_at'))
-    return JsonResponse(users, safe=False)
+class CategoryViewSet(viewsets.ModelViewSet):
+    queryset = Category.objects.all()
+    serializer_class = CategorySerializer
 
-import json
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
+class TaskViewSet(viewsets.ModelViewSet):
+    queryset = Task.objects.all()
+    serializer_class = TaskSerializer
 
-@csrf_exempt
-def create_user(request):
-    if request.method == 'POST':
-        data = json.loads(request.body)
-        user = User.objects.create(username=data['username'], email=data['email'])
-        return JsonResponse({'id': user.id, 'message': 'User created successfully'}, status=201)
+    def create(self, request, *args, **kwargs):
+        response = super().create(request, *args, **kwargs)
+        response.data['message'] = 'Task created successfully.'
+        return response
     
-from .models import Task
+    def update(self, request, *args, **kwargs):
+        response = super().update(request, *args, **kwargs)
+        response.data['message'] = 'Task updated successfully.'
+        return response
+    
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if instance.is_completed:
+            return Response({'message': 'Cannot delete a completed task.'}, status=status.HTTP_400_BAD_REQUEST)
+        self.perform_destroy(instance)
+        return Response({'message': 'Task deleted successfully.'}, status=status.HTTP_204_NO_CONTENT)
 
-def get_tasks(request):
-    tasks = list(Task.objects.values('id', 'title', 'description', 'is_completed', 'user', 'created_at'))
-    return JsonResponse(tasks, safe=False)
+class UserViewSet(viewsets.ModelViewSet):
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
 
-@csrf_exempt
-def create_task(request):
-    if request.method == 'POST':
-        data = json.loads(request.body)
-        user = User.objects.get(id=data['user'])
-        task = Task.objects.create(title=data['title'], description=data['description'], user=user)
-        return JsonResponse({'id': task.id, 'message': 'Task created successfully'}, status=201)
-    
-class UserListCreate(APIView):
-    def get(self, request):
-        users = User.objects.all()
-        serializer = UserSerializer(users, many=True)
-        return Response(serializer.data)
-    
-    def post(self, request):
-        serializer = UserSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-class TaskListCreate(APIView):
-    def get(self, request):
-        tasks = Task.objects.all()
-        serializer = TaskSerializer(tasks, many=True)
-        return Response(serializer.data)
-    
-    def post(self, request):
-        serializer = TaskSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    def create(self, request, *args, **kwargs):
+        response = super().create(request, *args, **kwargs)
+        response.data['message'] = 'User created successfully.'
+        return response
