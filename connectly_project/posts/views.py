@@ -6,6 +6,7 @@ from rest_framework.authtoken.models import Token
 from django.contrib.auth.models import User
 from .models import Post, Comment
 from .serializers import PostSerializer, CommentSerializer
+from .factories import PostFactory
 from .utils import success_response, error_response
 
 @api_view(['POST'])
@@ -29,11 +30,19 @@ class PostViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        if serializer.is_valid():
-            self.perform_create(serializer)
-            return success_response('Post created successfully!', serializer.data, status.HTTP_201_CREATED)
-        return error_response('Post creation failed.', serializer.errors, status.HTTP_400_BAD_REQUEST)
+        post_type = request.data.get('post_type')
+        title = request.data.get('title')
+        content = request.data.get('content', '')
+        metadata = request.data.get('metadata', {})
+        author = request.user
+
+        try:
+            post = PostFactory.create_post(post_type, title, content, metadata, author)
+        except ValueError as e:
+            return error_response(str(e), status_code=status.HTTP_400_BAD_REQUEST)
+        
+        serializer = self.get_serializer(post)
+        return success_response('Post created successfully!', serializer.data, status.HTTP_201_CREATED)
     
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
