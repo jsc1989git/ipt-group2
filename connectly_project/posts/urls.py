@@ -1,16 +1,11 @@
-from django.urls import path
-# from . import views
-from .views import UserListCreate, PostListCreate, CommentListCreate, UserDetail, PostDetail, CommentDetail
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+from .views import PostViewSet, CommentViewSet
+
+router = DefaultRouter()
+router.register(r'posts', PostViewSet, basename='post')
+router.register(r'comments', CommentViewSet, basename='comment')
+
 urlpatterns = [
-    # User endpoints
-    path('users/', UserListCreate.as_view(), name='user_list_create'),
-    path('users/<int:pk>/', UserDetail.as_view(), name='user_detail'),
-
-    # Post endpoints
-    path('posts/', PostListCreate.as_view(), name='post_list_create'),
-    path('posts/<int:pk>/', PostDetail.as_view(), name='post_detail'),
-
-    # Comment endpoints
-    path('comments/', CommentListCreate.as_view(), name='comment_list_create'),
-    path('comments/<int:pk>/', CommentDetail.as_view(), name='comment_detail'),
+    path('', include(router.urls)),
 ]
