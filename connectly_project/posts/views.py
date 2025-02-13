@@ -1,14 +1,32 @@
+from rest_framework.decorators import api_view
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.authentication import TokenAuthentication
 from rest_framework import viewsets, status
+from rest_framework.authtoken.models import Token
 from django.contrib.auth.models import User
 from .models import Post, Comment
 from .serializers import PostSerializer, CommentSerializer
-from rest_framework.permissions import AllowAny
 from .utils import success_response, error_response
+
+@api_view(['POST'])
+def register(request):
+    if request.method == 'POST':
+        username = request.data.get('username')
+        password = request.data.get('password')
+        if not username or not password:
+            return error_response('Username and password are required.', status_code=status.HTTP_400_BAD_REQUEST)
+        if User.objects.filter(username=username).exists():
+            return error_response('Username already exists.', status_code=status.HTTP_400_BAD_REQUEST)
+        user = User.objects.create_user(username=username, password=password)
+
+        token, created = Token.objects.get_or_create(user=user)
+        return success_response('User registered successfully!', {'token': token.key}, status_code=status.HTTP_201_CREATED)
 
 class PostViewSet(viewsets.ModelViewSet):
     queryset = Post.objects.all()
     serializer_class = PostSerializer
-    permission_classes = [AllowAny]
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -34,7 +52,8 @@ class PostViewSet(viewsets.ModelViewSet):
 class CommentViewSet(viewsets.ModelViewSet):
     queryset = Comment.objects.all()
     serializer_class = CommentSerializer
-    permission_classes = [AllowAny]
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
