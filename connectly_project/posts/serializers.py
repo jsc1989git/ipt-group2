@@ -7,19 +7,28 @@ class PostSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Post
-        fields = ['id', 'content', 'author', 'created_at', 'comments']
+        fields = '__all__'
+        extra_kwargs = {
+            'content': {'allow_blank': True},
+        }
+
+    def validate_content(self, value):
+        if not value.strip():
+            raise serializers.ValidationError("Post content cannot be empty.")
+        return value
 
 class CommentSerializer(serializers.ModelSerializer):
+    post = serializers.PrimaryKeyRelatedField(queryset=Post.objects.all(), error_messages={"does_not_exist": "Post not found."})
+    author = serializers.PrimaryKeyRelatedField(queryset=User.objects.all(), error_messages={"does_not_exist": "Author not found."})
+
     class Meta:
         model = Comment
-        fields = ['id', 'text', 'author', 'post', 'created_at']
+        fields = '__all__'
+        extra_kwargs = {
+            'text': {'allow_blank': True},
+        }
 
-    def validate_post(self, value):
-        if not Post.objects.filter(id=value.id).exists():
-            raise serializers.ValidationError("Post not found.")
-        return value
-    
-    def validate_author(self, value):
-        if not User.objects.filter(id=value.id).exists():
-            raise serializers.ValidationError("Author not found.")
+    def validate_text(self, value):
+        if not value.strip():
+            raise serializers.ValidationError("Comment cannot be empty.")
         return value
