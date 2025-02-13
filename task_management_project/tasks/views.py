@@ -7,6 +7,8 @@ from rest_framework.response import Response
 from rest_framework import viewsets, status
 from .models import Task, Category
 from .serializers import TaskSerializer, CategorySerializer
+from .factories import task_factory
+from .singleton import TaskConfig
 
 @api_view(['POST'])
 def register(request):
@@ -24,21 +26,40 @@ class CategoryViewSet(viewsets.ModelViewSet):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
 
+
+config = TaskConfig()
+config.set_config('default_completed_status', False)
+
 class TaskViewSet(viewsets.ModelViewSet):
     queryset = Task.objects.all()
     serializer_class = TaskSerializer
     authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated]
+    
 
     def create(self, request, *args, **kwargs):
-        response = super().create(request, *args, **kwargs)
-        response.data['message'] = 'Task created successfully.'
-        return response
+        # serializer = self.get_serializer(data=request.data)
+        # serializer.is_valid(raise_exception=True)
+        # self.perform_create(serializer)
+        # return Response({'message': 'Task created successfully.', "data": serializer.data}, status=status.HTTP_201_CREATED)
+        title = request.data.get('title')
+        description = request.data.get('description')
+        # is_completed = request.data.get('is_completed', False)
+        is_completed = request.data.get('is_completed', config.get_config('default_completed_status'))
+        category = request.data.get('category', None)
+
+        task = task_factory(title=title, description=description, is_completed=is_completed, category=category)
+        task.save()
+        serializer = self.get_serializer(task)
+        return Response({'message': 'Task created successfully.', "data": serializer.data}, status=status.HTTP_201_CREATED)
     
     def update(self, request, *args, **kwargs):
-        response = super().update(request, *args, **kwargs)
-        response.data['message'] = 'Task updated successfully.'
-        return response
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        return Response({'message': 'Task updated successfully.', "data": serializer.data}, status=status.HTTP_200_OK)
     
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
