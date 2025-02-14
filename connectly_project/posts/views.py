@@ -8,6 +8,10 @@ from .models import Post, Comment
 from .serializers import PostSerializer, CommentSerializer
 from .factories import PostFactory
 from .utils import success_response, error_response
+from .singleton import LoggerSingleton
+
+logger = LoggerSingleton().get_logger()
+logger.info("API initialized successfully.")
 
 @api_view(['POST'])
 def register(request):
