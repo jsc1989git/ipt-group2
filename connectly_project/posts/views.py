@@ -60,6 +60,10 @@ class PostViewSet(viewsets.ModelViewSet):
     
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
+
+        if instance.author != request.user:
+            return error_response('You can only delete your own posts.', status_code=status.HTTP_403_FORBIDDEN)
+
         self.perform_destroy(instance)
         return success_response('Post deleted successfully!', status_code=status.HTTP_204_NO_CONTENT)
 
@@ -87,6 +91,10 @@ class CommentViewSet(viewsets.ModelViewSet):
     
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
+
+        if request.user != instance.user or request.user != instance.post.author:
+            return error_response('You do not have permission to delete this comment', status.HTTP_403_FORBIDDEN)
+
         self.perform_destroy(instance)
         return success_response('Comment deleted successfully!', status_code=status.HTTP_204_NO_CONTENT)
     
