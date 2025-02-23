@@ -1,14 +1,15 @@
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import TokenAuthentication
 from rest_framework import viewsets, status
 from rest_framework.authtoken.models import Token
 from django.contrib.auth.models import User
-from .models import Post, Comment
-from .serializers import PostSerializer, CommentSerializer
+from .models import Post, Comment, Like
+from .serializers import PostSerializer, CommentSerializer, LikeSerializer
 from .factories import PostFactory
 from .utils import success_response, error_response
 from .singleton import LoggerSingleton
+from django.shortcuts import get_object_or_404
 
 logger = LoggerSingleton().get_logger()
 logger.info("API initialized successfully.")
@@ -88,3 +89,40 @@ class CommentViewSet(viewsets.ModelViewSet):
         instance = self.get_object()
         self.perform_destroy(instance)
         return success_response('Comment deleted successfully!', status_code=status.HTTP_204_NO_CONTENT)
+    
+class LikeViewSet(viewsets.ModelViewSet):
+    queryset = Like.objects.all()
+    serializer_class = LikeSerializer
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Like.objects.filter(user=self.request.user)
+    
+    @action(detail=True, methods=['post'])
+    def like(self, request, pk=None):
+        # Like a post
+        post = get_object_or_404(Post, pk=pk)
+        like, created = Like.objects.get_or_create(user=request.user, post=post)
+
+        if not created:
+            return error_response('You already liked this post.', status.HTTP_400_BAD_REQUEST)
+        
+        return success_response('Post liked succsfully!', status_code=status.HTTP_201_CREATED)
+    
+    @action(detail=True, methods=['delete'])
+    def unlike(self, request, pk=None):
+        # Unlike a post
+        like = Like.objects.filter(user=request.user, post_id=pk)
+
+        if not like.exists():
+            return error_response('Like not found.', status.HTTP_400_BAD_REQUEST)
+        
+        like.delete()
+        return success_response('Post unliked successfully!', status_code=status.HTTP_204_NO_CONTENT)
+    
+    @action(detail=True, methods=['get'])
+    def likes_count(self, request, pk=None):
+        # Get total likes for a post
+        count = Like.objects.filter(post_id=pk).count()
+        return success_response('Total likes count retrieved', {'likes' : count}, status.HTTP_200_OK)

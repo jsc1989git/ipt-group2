@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Post, Comment
+from .models import Post, Comment, Like
 
 class PostSerializer(serializers.ModelSerializer):
     comments = serializers.StringRelatedField(many=True, read_only=True)
@@ -32,3 +32,8 @@ class CommentSerializer(serializers.ModelSerializer):
         if not value.strip():
             raise serializers.ValidationError("Comment cannot be empty.")
         return value
+    
+class LikeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Like
+        fields = '__all__'
