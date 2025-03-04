@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'posts',
     'rest_framework.authtoken',
     'django_extensions',
+    'django_filters',
 ]
 
 MIDDLEWARE = [
@@ -127,3 +128,8 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 SECURE_SSL_REDIRECT = True
+
+REST_FRAMEWORK = {
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 5
+}

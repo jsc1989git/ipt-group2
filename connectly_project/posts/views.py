@@ -1,8 +1,9 @@
 from rest_framework.decorators import api_view, action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import TokenAuthentication
-from rest_framework import viewsets, status
+from rest_framework import viewsets, status, filters
 from rest_framework.authtoken.models import Token
+from rest_framework.pagination import PageNumberPagination
 from django.contrib.auth.models import User
 from .models import Post, Comment, Like
 from .serializers import PostSerializer, CommentSerializer, LikeSerializer
@@ -10,6 +11,7 @@ from .factories import PostFactory
 from .utils import success_response, error_response
 from .singleton import LoggerSingleton
 from django.shortcuts import get_object_or_404
+from django_filters.rest_framework import DjangoFilterBackend
 
 logger = LoggerSingleton().get_logger()
 logger.info("API initialized successfully.")
@@ -27,12 +29,24 @@ def register(request):
 
         token, created = Token.objects.get_or_create(user=user)
         return success_response('User registered successfully!', {'token': token.key}, status_code=status.HTTP_201_CREATED)
+    
+class StandardResultsSetPagination(PageNumberPagination):
+    page_size = 5
+    page_size_query_param = 'page_size'
+    max_page_size = 20
 
 class PostViewSet(viewsets.ModelViewSet):
     queryset = Post.objects.all()
     serializer_class = PostSerializer
     authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated]
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [
+        DjangoFilterBackend, 
+        filters.OrderingFilter
+    ]
+    ordering_fields = ['created_at']
+    ordering = ['-created_at']
 
     def create(self, request, *args, **kwargs):
         post_type = request.data.get('post_type')
