@@ -92,7 +92,7 @@ class CommentViewSet(viewsets.ModelViewSet):
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
 
-        if request.user != instance.user or request.user != instance.post.author:
+        if request.user != instance.author and request.user != instance.post.author:
             return error_response('You do not have permission to delete this comment', status.HTTP_403_FORBIDDEN)
 
         self.perform_destroy(instance)
@@ -116,7 +116,7 @@ class LikeViewSet(viewsets.ModelViewSet):
         if not created:
             return error_response('You already liked this post.', status.HTTP_400_BAD_REQUEST)
         
-        return success_response('Post liked succsfully!', status_code=status.HTTP_201_CREATED)
+        return success_response('Post liked succesfully!', status_code=status.HTTP_201_CREATED)
     
     @action(detail=True, methods=['delete'])
     def unlike(self, request, pk=None):

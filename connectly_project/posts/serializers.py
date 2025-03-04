@@ -34,6 +34,8 @@ class CommentSerializer(serializers.ModelSerializer):
         return value
     
 class LikeSerializer(serializers.ModelSerializer):
+    post = serializers.PrimaryKeyRelatedField(queryset=Post.objects.all(), error_messages={"does_not_exist": "Post not found."})
+    user = serializers.PrimaryKeyRelatedField(queryset=User.objects.all(), error_messages={"does_not_exist": "User not found."})
     class Meta:
         model = Like
         fields = '__all__'
