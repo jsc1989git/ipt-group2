@@ -1,7 +1,7 @@
-from rest_framework.decorators import api_view, action
+from rest_framework.decorators import api_view, action, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import TokenAuthentication
-from rest_framework import viewsets, status, filters
+from rest_framework import viewsets, status, filters, permissions
 from rest_framework.authtoken.models import Token
 from rest_framework.pagination import PageNumberPagination
 from django.contrib.auth.models import User
@@ -12,9 +12,44 @@ from .utils import success_response, error_response
 from .singleton import LoggerSingleton
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
+import requests
+from google.oauth2 import id_token
+from rest_framework.authtoken.models import Token
+from rest_framework.permissions import AllowAny
+
+GOOGLE_USER_INFO_URL = 'https://www.googleapis.com/oauth2/v2/userinfo'
+
 
 logger = LoggerSingleton().get_logger()
 logger.info("API initialized successfully.")
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def google_login(request):
+    token = request.data.get('token')
+    if not token:
+        return error_response('Token is required.', status_code=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        headers = {'Authorization': f'Bearer {token}'}
+        response = requests.get(GOOGLE_USER_INFO_URL, headers=headers)
+        
+        if response.status_code != 200:
+            return error_response('Invalid token.', status_code=status.HTTP_400_BAD_REQUEST)
+        
+        user_info = response.json()
+        email = user_info.get('email')
+
+        if not email:
+            return error_response('Email not found in user info.', status_code=status.HTTP_400_BAD_REQUEST)
+        
+        user, created = User.objects.get_or_create(username=email, defaults={'email': email})
+        auth_token, _ = Token.objects.get_or_create(user=user)
+        return success_response('Login successful', {'token': auth_token.key, 'username': user.username})
+    except Exception as e:
+        logger.error(f'Google login failed: {str(e)}')
+        return error_response('Google login failed.', status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 @api_view(['POST'])
 def register(request):

@@ -13,4 +13,5 @@ urlpatterns = [
     path('', include(router.urls)),
     path('register/', views.register, name='register'),
     path('api-token-auth/', obtain_auth_token, name='api_token_auth'),
+    path('auth/google/login/', views.google_login, name='google_login'),
 ]
