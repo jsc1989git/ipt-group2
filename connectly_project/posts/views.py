@@ -16,6 +16,7 @@ import requests
 from google.oauth2 import id_token
 from rest_framework.authtoken.models import Token
 from rest_framework.permissions import AllowAny
+from .permissions import IsAdminUser, IsAuthenticatedUser, IsPostAuthor, IsCommentAuthor, IsPostOrCommentAuthor
 
 GOOGLE_USER_INFO_URL = 'https://www.googleapis.com/oauth2/v2/userinfo'
 
@@ -44,6 +45,12 @@ def google_login(request):
             return error_response('Email not found in user info.', status_code=status.HTTP_400_BAD_REQUEST)
         
         user, created = User.objects.get_or_create(username=email, defaults={'email': email})
+
+        if created:
+            from django.contrib.auth.models import Group
+            user_group = Group.objects.get(name='User')
+            user.groups.add(user_group)
+
         auth_token, _ = Token.objects.get_or_create(user=user)
         return success_response('Login successful', {'token': auth_token.key, 'username': user.username})
     except Exception as e:
@@ -62,6 +69,10 @@ def register(request):
             return error_response('Username already exists.', status_code=status.HTTP_400_BAD_REQUEST)
         user = User.objects.create_user(username=username, password=password)
 
+        from django.contrib.auth.models import Group
+        user_group = Group.objects.get(name='User')
+        user.groups.add(user_group)
+
         token, created = Token.objects.get_or_create(user=user)
         return success_response('User registered successfully!', {'token': token.key}, status_code=status.HTTP_201_CREATED)
     
@@ -74,7 +85,7 @@ class PostViewSet(viewsets.ModelViewSet):
     queryset = Post.objects.all()
     serializer_class = PostSerializer
     authentication_classes = [TokenAuthentication]
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, (IsAdminUser | IsPostAuthor)]
     pagination_class = StandardResultsSetPagination
     filter_backends = [
         DjangoFilterBackend, 
@@ -116,11 +127,28 @@ class PostViewSet(viewsets.ModelViewSet):
         self.perform_destroy(instance)
         return success_response('Post deleted successfully!', status_code=status.HTTP_204_NO_CONTENT)
 
+    def get_permissions(self):
+        if self.action in ['update', 'partial_update', 'destroy']:
+            return [IsAuthenticated(), (IsPostAuthor() | IsAdminUser())]
+        return [IsAuthenticated()]
+    
+class PublicPostViewSet(viewsets.ModelViewSet):
+    queryset = Post.objects.all()
+    serializer_class = PostSerializer
+    permission_classes = [permissions.AllowAny]
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [
+        DjangoFilterBackend, 
+        filters.OrderingFilter
+    ]
+    ordering_fields = ['created_at']
+    ordering = ['-created_at']
+
 class CommentViewSet(viewsets.ModelViewSet):
     queryset = Comment.objects.all()
     serializer_class = CommentSerializer
     authentication_classes = [TokenAuthentication]
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, (IsAdminUser | IsCommentAuthor | IsPostOrCommentAuthor)]
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -151,7 +179,7 @@ class LikeViewSet(viewsets.ModelViewSet):
     queryset = Like.objects.all()
     serializer_class = LikeSerializer
     authentication_classes = [TokenAuthentication]
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAuthenticatedUser]
 
     def get_queryset(self):
         return Like.objects.filter(user=self.request.user)
