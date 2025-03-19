@@ -19,8 +19,8 @@ def create_roles(sender, **kwargs):
     admin_permissions = Permission.objects.filter(content_type__in=[post_ct, comment_ct])
     user_permissions = Permission.objects.filter(content_type=post_ct, codename__in=['add_post', 'change_post', 'delete_post'])
     user_comment_permissions = Permission.objects.filter(content_type=comment_ct, codename__in=['add_comment', 'change_comment', 'delete_comment'])
-    user_like_permissions = Permission.objects.filter(content_type=post_ct, codename=['add_like', 'delete_like'])
-    guest_permissions = Permission.objects.filter(content_type=post_ct, codename='view_post')
+    user_like_permissions = Permission.objects.filter(content_type=post_ct, codename__in=['add_like', 'delete_like'])
+    guest_permissions = Permission.objects.filter(content_type=post_ct, codename__in='view_post')
 
     admin_group.permissions.set(admin_permissions)
     user_group.permissions.set(user_permissions | user_comment_permissions | user_like_permissions)

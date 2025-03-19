@@ -8,7 +8,7 @@ router = DefaultRouter()
 router.register(r'posts', PostViewSet, basename='post')
 router.register(r'comments', CommentViewSet, basename='comment')
 router.register(r'likes', LikeViewSet, basename='like')
-router.register(r'feed', PublicPostViewSet, basename='public_post')
+router.register(r'public', PublicPostViewSet, basename='public_post')
 
 urlpatterns = [
     path('', include(router.urls)),
