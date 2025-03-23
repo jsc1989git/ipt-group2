@@ -3,9 +3,12 @@ from posts.models import Post
 
 class PostFactory:
     @staticmethod
-    def create_post(post_type, title, content='', metadata=None, author=None):
+    def create_post(post_type, title, content='', metadata=None, author=None, privacy='public'):
         if post_type not in dict(Post.POST_TYPES):
             raise ValueError("Invalid post type")
+        
+        if privacy not in dict(Post.PRIVACY_CHOICES):
+            raise ValueError("Invalid privacy setting")
         
         metadata = metadata or {}
 
@@ -20,5 +23,6 @@ class PostFactory:
             content=content,
             post_type=post_type,
             metadata=metadata,
-            author=author
+            author=author,
+            privacy=privacy
         )

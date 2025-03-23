@@ -15,6 +15,17 @@ class Post(models.Model):
     metadata = models.JSONField(default=dict, blank=True) # Additional metadata for the post
     created_at = models.DateTimeField(auto_now_add=True) # Timestamp when post is created
 
+    # Privacy field
+    PRIVACY_CHOICES = [
+        ('public', 'Public'),
+        ('private', 'Private'),
+    ]
+    privacy = models.CharField(
+        max_length=10,
+        choices=PRIVACY_CHOICES,
+        default='public'
+    )
+
     def __str__(self):
         return f"Post by {self.author.username} at {self.created_at}"
     

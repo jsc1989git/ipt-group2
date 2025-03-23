@@ -14,13 +14,14 @@ def create_roles(sender, **kwargs):
     # Get content types for Post and Comment
     post_ct = ContentType.objects.get_for_model(Post)
     comment_ct = ContentType.objects.get_for_model(Comment)
+    like_ct = ContentType.objects.get_for_model(Like)
 
     # Assign permissions to groups
     admin_permissions = Permission.objects.filter(content_type__in=[post_ct, comment_ct])
     user_permissions = Permission.objects.filter(content_type=post_ct, codename__in=['add_post', 'change_post', 'delete_post'])
     user_comment_permissions = Permission.objects.filter(content_type=comment_ct, codename__in=['add_comment', 'change_comment', 'delete_comment'])
-    user_like_permissions = Permission.objects.filter(content_type=post_ct, codename__in=['add_like', 'delete_like'])
-    guest_permissions = Permission.objects.filter(content_type=post_ct, codename__in='view_post')
+    user_like_permissions = Permission.objects.filter(content_type=like_ct, codename__in=['add_like', 'delete_like'])
+    guest_permissions = Permission.objects.filter(content_type=post_ct, codename__in=['view_post'])
 
     admin_group.permissions.set(admin_permissions)
     user_group.permissions.set(user_permissions | user_comment_permissions | user_like_permissions)

@@ -16,7 +16,8 @@ import requests
 from google.oauth2 import id_token
 from rest_framework.authtoken.models import Token
 from rest_framework.permissions import AllowAny
-from .permissions import IsAdminUser, IsAuthenticatedUser, IsPostAuthor, IsCommentAuthor, IsPostOrCommentAuthor
+from .permissions import IsAdminUser, IsAuthenticatedUser, IsPostAuthor, IsCommentAuthor, IsPostOrCommentAuthor, IsPostAuthorOrAdmin, IsCommentAuthorOrPostAuthorOrAdmin
+from django.db.models import Q
 
 GOOGLE_USER_INFO_URL = 'https://www.googleapis.com/oauth2/v2/userinfo'
 
@@ -70,7 +71,7 @@ def register(request):
         user = User.objects.create_user(username=username, password=password)
 
         from django.contrib.auth.models import Group
-        user_group = Group.objects.get(name='User')
+        user_group, created = Group.objects.get_or_create(name='User')
         user.groups.add(user_group)
 
         token, created = Token.objects.get_or_create(user=user)
@@ -85,7 +86,7 @@ class PostViewSet(viewsets.ModelViewSet):
     queryset = Post.objects.all()
     serializer_class = PostSerializer
     authentication_classes = [TokenAuthentication]
-    permission_classes = [IsAuthenticated, (IsAdminUser | IsPostAuthor)]
+    permission_classes = [IsAuthenticated, IsPostAuthorOrAdmin]
     pagination_class = StandardResultsSetPagination
     filter_backends = [
         DjangoFilterBackend, 
@@ -94,15 +95,34 @@ class PostViewSet(viewsets.ModelViewSet):
     ordering_fields = ['created_at']
     ordering = ['-created_at']
 
+    def get_queryset(self):
+        user = self.request.user
+
+        if user.groups.filter(name='Admin').exists():
+            return Post.objects.all()
+        
+        return Post.objects.filter(
+            Q(privacy='public') |
+            Q(author=user)
+        )
+
     def create(self, request, *args, **kwargs):
         post_type = request.data.get('post_type')
         title = request.data.get('title')
         content = request.data.get('content', '')
         metadata = request.data.get('metadata', {})
+        privacy = request.data.get('privacy', 'public')
         author = request.user
 
         try:
-            post = PostFactory.create_post(post_type, title, content, metadata, author)
+            post = PostFactory.create_post(
+                post_type=post_type,
+                title=title,
+                content=content,
+                metadata=metadata,
+                author=author,
+                privacy=privacy
+            )
         except ValueError as e:
             return error_response(str(e), status_code=status.HTTP_400_BAD_REQUEST)
         
@@ -121,7 +141,9 @@ class PostViewSet(viewsets.ModelViewSet):
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
 
-        if instance.author != request.user:
+        is_admin = request.user.groups.filter(name='Admin').exists()
+
+        if not is_admin and instance.author != request.user:
             return error_response('You can only delete your own posts.', status_code=status.HTTP_403_FORBIDDEN)
 
         self.perform_destroy(instance)
@@ -129,11 +151,11 @@ class PostViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['update', 'partial_update', 'destroy']:
-            return [IsAuthenticated(), (IsPostAuthor() | IsAdminUser())]
+            return [IsAuthenticated(), IsPostAuthorOrAdmin()]
         return [IsAuthenticated()]
     
-class PublicPostViewSet(viewsets.ModelViewSet):
-    queryset = Post.objects.all()
+class PublicPostViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = Post.objects.filter(privacy='public')
     serializer_class = PostSerializer
     permission_classes = [permissions.AllowAny]
     pagination_class = StandardResultsSetPagination
@@ -148,7 +170,7 @@ class CommentViewSet(viewsets.ModelViewSet):
     queryset = Comment.objects.all()
     serializer_class = CommentSerializer
     authentication_classes = [TokenAuthentication]
-    permission_classes = [IsAuthenticated, (IsAdminUser | IsCommentAuthor | IsPostOrCommentAuthor)]
+    permission_classes = [IsAuthenticated, IsCommentAuthorOrPostAuthorOrAdmin]
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -169,7 +191,9 @@ class CommentViewSet(viewsets.ModelViewSet):
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
 
-        if request.user != instance.author and request.user != instance.post.author:
+        is_admin = request.user.groups.filter(name='Admin').exists()
+
+        if not is_admin and request.user != instance.author and request.user != instance.post.author:
             return error_response('You do not have permission to delete this comment', status.HTTP_403_FORBIDDEN)
 
         self.perform_destroy(instance)
@@ -187,7 +211,13 @@ class LikeViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def like(self, request, pk=None):
         # Like a post
-        post = get_object_or_404(Post, pk=pk)
+        try:
+            post = Post.objects.get(
+                Q(id=pk) & (Q(privacy='public') | Q(author=request.user))
+            )
+        except Post.DoesNotExist:
+            return error_response('Post not found or not accessible.', status.HTTP_404_NOT_FOUND)
+
         like, created = Like.objects.get_or_create(user=request.user, post=post)
 
         if not created:
