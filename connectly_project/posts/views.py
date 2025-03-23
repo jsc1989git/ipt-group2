@@ -18,6 +18,7 @@ from rest_framework.authtoken.models import Token
 from rest_framework.permissions import AllowAny
 from .permissions import IsAdminUser, IsAuthenticatedUser, IsPostAuthor, IsCommentAuthor, IsPostOrCommentAuthor, IsPostAuthorOrAdmin, IsCommentAuthorOrPostAuthorOrAdmin
 from django.db.models import Q
+from django.core.cache import cache
 
 GOOGLE_USER_INFO_URL = 'https://www.googleapis.com/oauth2/v2/userinfo'
 
@@ -158,6 +159,12 @@ class PostViewSet(viewsets.ModelViewSet):
     def feed(self, request):
         user = request.user
 
+        cache_key = f'feed_{user.id}'
+
+        cached_data = cache.get(cache_key)
+        if cached_data:
+            return success_response('Feed retrieved from cache', cached_data)
+
         if user.groups.filter(name='Admin').exists():
             posts = Post.objects.all()
         else:
@@ -171,10 +178,32 @@ class PostViewSet(viewsets.ModelViewSet):
         page = self.paginate_queryset(posts)
         if page is not None:
             serializer = self.get_serializer(page, many=True)
-            return self.get_paginated_response(serializer.data)
+            data = serializer.data
+
+            cache.set(cache_key, data, 60 * 5) # Cache for 5 minutes
+            return self.get_paginated_response(data)
         
         serializer = self.get_serializer(posts, many=True)
+        data = serializer.data
+
+        cache.set(cache_key, data, 60 * 5)
         return success_response('Feed retrieved successfully', serializer.data)
+    
+    def perform_create(self, serializer):
+        post = serializer.save()
+        self._invalidate_relevant_feed_caches(post)
+
+    def perform_update(self, instance):
+        self._invalidate_relevant_feed_caches(instance)
+        instance.delete()
+
+    def _invalidate_relevant_feed_caches(self, post):
+        author_cache_key = f'user_feed_{post.author.id}'
+        cache.delete(author_cache_key)
+
+        if post.privacy == 'public':
+            for user in User.objects.all():
+                cache.delete(f'user_feed_{user.id}')
     
 class PublicPostViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Post.objects.filter(privacy='public')
