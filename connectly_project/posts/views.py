@@ -154,6 +154,28 @@ class PostViewSet(viewsets.ModelViewSet):
             return [IsAuthenticated(), IsPostAuthorOrAdmin()]
         return [IsAuthenticated()]
     
+    @action(detail=False, methods=['get'])
+    def feed(self, request):
+        user = request.user
+
+        if user.groups.filter(name='Admin').exists():
+            posts = Post.objects.all()
+        else:
+            posts = Post.objects.filter(
+                Q(privacy='public') |
+                Q(author=user)
+            )
+
+        posts = posts.order_by('-created_at')
+
+        page = self.paginate_queryset(posts)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        
+        serializer = self.get_serializer(posts, many=True)
+        return success_response('Feed retrieved successfully', serializer.data)
+    
 class PublicPostViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Post.objects.filter(privacy='public')
     serializer_class = PostSerializer
