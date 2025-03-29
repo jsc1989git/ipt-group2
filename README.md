@@ -157,78 +157,61 @@ The system architecture consists of several layers:
 ### Access Control Flow
 
 ```mermaid
-  %%{init: {'theme': 'dark'}}%%
-sequenceDiagram
-    participant Client as Client (Postman)
-    participant API as REST API
-    participant OAuth as Google OAuth Service
-    participant TokenAuth as Token Authentication
-    participant RBAC as RBAC Middleware
-    participant Privacy as Privacy Manager
-    participant ViewSets as ViewSets
-    participant Models as Data Models
-    participant DB as Database
-
-    %% Authentication Flow
-    Client->>API: Request (with Bearer token)
-    API->>TokenAuth: Validate Bearer Token
+  flowchart TD
+    Start([Client Request]) --> TokenValidation[Validate Bearer Token]
+    TokenValidation --> AuthCheck{Valid Token?}
     
-    alt New User / Expired Token
-        TokenAuth->>OAuth: Redirect to Google OAuth
-        OAuth-->>TokenAuth: Authentication Code
-        TokenAuth->>OAuth: Exchange Code for Token
-        OAuth-->>TokenAuth: Access Token + User Info
-        TokenAuth-->>TokenAuth: Generate JWT Token
-    end
+    AuthCheck -->|No| OAuthFlow[Google OAuth Flow]
+    OAuthFlow --> TokenGeneration[Generate JWT Token]
+    TokenGeneration --> TokenValidation
     
-    alt Valid Token
-        TokenAuth-->>API: User Authenticated (User ID)
-        
-        %% Role-based Authorization
-        API->>RBAC: Check User Role (User ID)
-        RBAC->>DB: Query User Role
-        DB-->>RBAC: Return Role (Admin/User)
-        
-        alt Authorized for Action
-            RBAC-->>API: User Authorized
-            
-            %% Request Processing with Privacy Checks
-            API->>Privacy: Apply Privacy Filters
-            Privacy->>DB: Get User's Privacy Settings
-            DB-->>Privacy: Return Privacy Settings
-            
-            %% Executing the Request
-            alt Request for Content Creation/Modification
-                Privacy-->>API: Privacy Rules Applied
-                API->>ViewSets: Process Request
-                ViewSets->>Models: CRUD Operation
-                Models->>DB: Execute Operation
-                DB-->>Models: Operation Result
-                Models-->>ViewSets: Data/Confirmation
-                ViewSets-->>API: Response
-                API-->>Client: Success Response (200 OK)
-            else Request for Content Retrieval
-                Privacy->>DB: Query with Privacy Filters
-                DB-->>Privacy: Filtered Content
-                Privacy-->>API: Privacy-Filtered Content
-                API-->>Client: Content Response (200 OK)
-            end
-            
-        else Unauthorized for Action
-            RBAC-->>API: User Not Authorized
-            API-->>Client: Forbidden Response (403)
-        end
-        
-    else Invalid Token
-        TokenAuth-->>API: Authentication Failed
-        API-->>Client: Unauthorized Response (401)
-    end
+    AuthCheck -->|Yes| ExtractUserID[Extract User ID]
+    ExtractUserID --> RoleLookup[Look Up User Role]
+    RoleLookup --> RoleCheck{Has Permission?}
     
-    %% Error Handling
-    alt Bad Request
-        Client->>API: Malformed Request
-        API-->>Client: Bad Request Response (400)
-    end
+    RoleCheck -->|No| Forbidden[Return 403 Forbidden]
+    
+    RoleCheck -->|Yes| PrivacyCheck[Get Privacy Settings]
+    PrivacyCheck --> RequestType{Request Type?}
+    
+    RequestType -->|Read| FilterQuery[Apply Privacy Filters to Query]
+    FilterQuery --> ExecuteRead[Execute Filtered Read]
+    ExecuteRead --> FormatResponse[Format Response]
+    
+    RequestType -->|Write| ValidateInput[Validate Input Data]
+    ValidateInput --> ApplyPrivacy[Apply Privacy Rules]
+    ApplyPrivacy --> ExecuteWrite[Execute Write Operation]
+    ExecuteWrite --> CacheUpdate[Update Cache]
+    CacheUpdate --> FormatResponse
+    
+    OAuthFlow -.->|Failure| AuthFailed[Return 401 Unauthorized]
+    ValidateInput -.->|Invalid| BadRequest[Return 400 Bad Request]
+    
+    FormatResponse --> Success[Return 200 OK]
+    
+    AuthFailed --> End([End Request])
+    Forbidden --> End
+    BadRequest --> End
+    Success --> End
+    
+    %% Logging flows
+    TokenValidation -.->|Log| AuthLog[Authentication Log]
+    RoleLookup -.->|Log| AccessLog[Access Control Log]
+    ExecuteRead -.->|Log| ActivityLog[Activity Log]
+    ExecuteWrite -.->|Log| ActivityLog
+    
+    classDef green fill:#9f6,stroke:#333,stroke-width:2px;
+    classDef red fill:#f99,stroke:#333,stroke-width:2px;
+    classDef blue fill:#69f,stroke:#333,stroke-width:2px;
+    classDef orange fill:#fc3,stroke:#333,stroke-width:2px;
+    classDef purple fill:#c6f,stroke:#333,stroke-width:2px;
+    
+    class Start,End green
+    class TokenValidation,ExtractUserID,RoleLookup,PrivacyCheck,FilterQuery,ExecuteRead,ValidateInput,ApplyPrivacy,ExecuteWrite,CacheUpdate,FormatResponse blue
+    class AuthCheck,RoleCheck,RequestType orange
+    class AuthFailed,Forbidden,BadRequest red
+    class OAuthFlow,TokenGeneration purple
+    class AuthLog,AccessLog,ActivityLog purple
 ```
 
 The sequence diagram illustrates the request lifecycle with access control:
