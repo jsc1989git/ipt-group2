@@ -314,7 +314,7 @@ The CRUD flow diagram demonstrates how data operations move through the system w
 - Google OAuth 2.0
 - JWT for token-based authentication
 - In-memory caching
-- PostgreSQL database (or your database of choice)
+- SQLite database (or your database of choice)
 
 ## Design Patterns
 
