@@ -157,7 +157,8 @@ The system architecture consists of several layers:
 ### Access Control Flow
 
 ```mermaid
-  flowchart TD
+  %%{init: {'theme': 'dark'}}%%
+flowchart TD
     Start([Client Request]) --> TokenValidation[Validate Bearer Token]
     TokenValidation --> AuthCheck{Valid Token?}
     
@@ -200,18 +201,19 @@ The system architecture consists of several layers:
     ExecuteRead -.->|Log| ActivityLog[Activity Log]
     ExecuteWrite -.->|Log| ActivityLog
     
-    classDef green fill:#9f6,stroke:#333,stroke-width:2px;
-    classDef red fill:#f99,stroke:#333,stroke-width:2px;
-    classDef blue fill:#69f,stroke:#333,stroke-width:2px;
-    classDef orange fill:#fc3,stroke:#333,stroke-width:2px;
-    classDef purple fill:#c6f,stroke:#333,stroke-width:2px;
+    classDef start fill:#5cff73,stroke:#ffffff,stroke-width:1px,color:#000000
+    classDef process fill:#5c73ff,stroke:#ffffff,stroke-width:1px,color:#ffffff
+    classDef decision fill:#ffb55c,stroke:#ffffff,stroke-width:1px,color:#000000
+    classDef error fill:#ff5c5c,stroke:#ffffff,stroke-width:1px,color:#ffffff
+    classDef auth fill:#a75cff,stroke:#ffffff,stroke-width:1px,color:#ffffff
+    classDef log fill:#5cffff,stroke:#ffffff,stroke-width:1px,color:#000000
     
-    class Start,End green
-    class TokenValidation,ExtractUserID,RoleLookup,PrivacyCheck,FilterQuery,ExecuteRead,ValidateInput,ApplyPrivacy,ExecuteWrite,CacheUpdate,FormatResponse blue
-    class AuthCheck,RoleCheck,RequestType orange
-    class AuthFailed,Forbidden,BadRequest red
-    class OAuthFlow,TokenGeneration purple
-    class AuthLog,AccessLog,ActivityLog purple
+    class Start,End,Success start
+    class TokenValidation,ExtractUserID,RoleLookup,PrivacyCheck,FilterQuery,ExecuteRead,ValidateInput,ApplyPrivacy,ExecuteWrite,CacheUpdate,FormatResponse process
+    class AuthCheck,RoleCheck,RequestType decision
+    class AuthFailed,Forbidden,BadRequest error
+    class OAuthFlow,TokenGeneration auth
+    class AuthLog,AccessLog,ActivityLog log
 ```
 
 The sequence diagram illustrates the request lifecycle with access control:
